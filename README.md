@@ -28,14 +28,15 @@ such as `GetKeys()`, which will return a slice of strings representing all keys 
 namespace:
 
 ```go
+active := true
 unique := true
-keys, err := kb.GetKeys(context.TODO(), "namespace", unique)
+keys, err := kb.GetKeys(context.TODO(), "namespace", active, unique)
 ```
 
-By setting `unique` to `true`, the slice will only include each active key once. Otherwise,
-the string make contain multiple copies of the same key if it has been submitted multiple
-times and queried within the TTL duration. Over time, as the keys become stale, they can be
-removed using the `PruneEntries` function:
+By setting `active` and `unique` to `true`, the slice will include each active key once. Otherwise,
+the string make contain multiple copies of the same key, as well as stale keys, if it has been 
+submitted multiple times and queried within the TTL duration. Over time, as the keys become stale, 
+they can be removed using the `PruneEntries` function:
 
 ```go
 _ = kb.PruneEntries(context.TODO())

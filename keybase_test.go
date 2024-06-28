@@ -25,23 +25,26 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"regexp"
 	"testing"
 	"time"
 
-	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestOpenClose(t *testing.T) {
-	keybase, err := Open()
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(0))
+	defer cancel()
+	keybase, err := Open(ctx)
+	assert.Nil(t, keybase)
+	assert.Error(t, err)
+	keybase, err = Open(context.TODO())
 	assert.NotNil(t, keybase)
 	assert.NoError(t, err)
 	defer keybase.Close()
 }
 
 func TestPut(t *testing.T) {
-	keybase, err := Open()
+	keybase, err := Open(context.TODO())
 	assert.NoError(t, err)
 	defer keybase.Close()
 
@@ -61,7 +64,7 @@ func TestKey(t *testing.T) {
 		"key0", "key0", "key1",
 	}
 	pattern := "key*"
-	keybase, err := Open()
+	keybase, err := Open(context.TODO())
 	assert.NoError(t, err)
 	defer keybase.Close()
 
@@ -73,23 +76,23 @@ func TestKey(t *testing.T) {
 	err = keybase.Put(context.TODO(), "othernamespace", "key0")
 	assert.NoError(t, err)
 
-	matchedKeys, err := keybase.MatchKey(context.TODO(), namespace, pattern, false)
+	matchedKeys, err := keybase.MatchKey(context.TODO(), namespace, pattern, true, false)
 	assert.Len(t, matchedKeys, 3)
 	assert.NoError(t, err)
 
-	matchedKeys, err = keybase.MatchKey(context.TODO(), namespace, pattern, true)
+	matchedKeys, err = keybase.MatchKey(context.TODO(), namespace, pattern, true, true)
 	assert.Len(t, matchedKeys, 2)
 	assert.NoError(t, err)
 
-	count, err := keybase.CountKey(context.TODO(), namespace, keys[0])
+	count, err := keybase.CountKey(context.TODO(), namespace, keys[0], true)
 	assert.Equal(t, 2, count)
 	assert.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(0))
 	defer cancel()
-	_, err = keybase.MatchKey(ctx, namespace, pattern, false)
+	_, err = keybase.MatchKey(ctx, namespace, pattern, true, false)
 	assert.Error(t, err)
-	_, err = keybase.CountKey(ctx, namespace, keys[0])
+	_, err = keybase.CountKey(ctx, namespace, keys[0], true)
 	assert.Error(t, err)
 }
 
@@ -99,7 +102,7 @@ func TestKeys(t *testing.T) {
 	keys := []string{
 		"key0", "key0", "key1",
 	}
-	keybase, err := Open()
+	keybase, err := Open(context.TODO())
 	assert.NoError(t, err)
 	defer keybase.Close()
 
@@ -111,32 +114,32 @@ func TestKeys(t *testing.T) {
 	err = keybase.Put(context.TODO(), "othernamespace", "key0")
 	assert.NoError(t, err)
 
-	namespaceKeys, err := keybase.GetKeys(context.TODO(), namespace, false)
+	namespaceKeys, err := keybase.GetKeys(context.TODO(), namespace, true, false)
 	assert.Len(t, namespaceKeys, 3)
 	assert.NoError(t, err)
 
-	namespaceKeys, err = keybase.GetKeys(context.TODO(), namespace, true)
+	namespaceKeys, err = keybase.GetKeys(context.TODO(), namespace, true, true)
 	assert.Len(t, namespaceKeys, 2)
 	assert.NoError(t, err)
 
-	count, err := keybase.CountKeys(context.TODO(), namespace, false)
+	count, err := keybase.CountKeys(context.TODO(), namespace, true, false)
 	assert.Equal(t, 3, count)
 	assert.NoError(t, err)
 
-	count, err = keybase.CountKeys(context.TODO(), namespace, true)
+	count, err = keybase.CountKeys(context.TODO(), namespace, true, true)
 	assert.Equal(t, 2, count)
 	assert.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(0))
 	defer cancel()
-	_, err = keybase.GetKeys(ctx, namespace, false)
+	_, err = keybase.GetKeys(ctx, namespace, true, false)
 	assert.Error(t, err)
-	_, err = keybase.CountKeys(ctx, namespace, false)
+	_, err = keybase.CountKeys(ctx, namespace, true, false)
 	assert.Error(t, err)
 }
 
 func TestNamespaces(t *testing.T) {
-	keybase, err := Open()
+	keybase, err := Open(context.TODO())
 	assert.NoError(t, err)
 	defer keybase.Close()
 
@@ -150,26 +153,25 @@ func TestNamespaces(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	namespaces, err := keybase.GetNamespaces(context.TODO())
+	namespaces, err := keybase.GetNamespaces(context.TODO(), true)
 	assert.Len(t, namespaces, 3)
 	assert.NoError(t, err)
 
-	count, err := keybase.CountNamespaces(context.TODO())
+	count, err := keybase.CountNamespaces(context.TODO(), true)
 	assert.Equal(t, 3, count)
 	assert.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(0))
 	defer cancel()
-	_, err = keybase.GetNamespaces(ctx)
+	_, err = keybase.GetNamespaces(ctx, true)
 	assert.Error(t, err)
-	_, err = keybase.CountNamespaces(ctx)
+	_, err = keybase.CountNamespaces(ctx, true)
 	assert.Error(t, err)
 }
 
 // TestEntries tests CountEntries and PruneEntries
 func TestEntries(t *testing.T) {
-	countStaleEntries := "SELECT COUNT(*) FROM keybase WHERE expiration <= (?);"
-	keybase, err := Open(WithTTL(time.Millisecond * 50))
+	keybase, err := Open(context.TODO(), WithTTL(time.Millisecond*50))
 	assert.NoError(t, err)
 	defer keybase.Close()
 
@@ -183,30 +185,30 @@ func TestEntries(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	count, err := keybase.CountEntries(context.TODO(), false)
+	count, err := keybase.CountEntries(context.TODO(), true, false)
 	assert.Equal(t, 9, count)
 	assert.NoError(t, err)
 
-	count, err = keybase.CountEntries(context.TODO(), true)
+	count, err = keybase.CountEntries(context.TODO(), true, true)
 	assert.Equal(t, 6, count)
 	assert.NoError(t, err)
 
 	time.Sleep(time.Millisecond * 50)
 
-	count, err = queryCount(context.TODO(), keybase.db, countStaleEntries, time.Now().UnixMilli())
+	count, err = keybase.CountEntries(context.TODO(), false, false)
 	assert.Equal(t, 9, count)
 	assert.NoError(t, err)
 
 	err = keybase.PruneEntries(context.TODO())
 	assert.NoError(t, err)
 
-	count, err = queryCount(context.TODO(), keybase.db, countStaleEntries, time.Now().UnixMilli())
+	count, err = keybase.CountEntries(context.TODO(), false, false)
 	assert.Zero(t, count)
 	assert.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(0))
 	defer cancel()
-	_, err = keybase.CountEntries(ctx, true)
+	_, err = keybase.CountEntries(ctx, true, true)
 	assert.Error(t, err)
 	err = keybase.PruneEntries(ctx)
 	assert.Error(t, err)
@@ -217,7 +219,7 @@ func TestStorage(t *testing.T) {
 	storageDirectory, _ := os.MkdirTemp(os.TempDir(), "keybase-*")
 	storagePath := path.Join(storageDirectory, "keybase.db")
 	initAndStore := func(ctx context.Context) {
-		keybase, err := Open(WithStorage(storagePath))
+		keybase, err := Open(context.TODO(), WithStorage(storagePath))
 		assert.NoError(t, err)
 		assert.NotNil(t, keybase)
 		defer keybase.Close()
@@ -229,33 +231,19 @@ func TestStorage(t *testing.T) {
 		}
 	}
 	loadAndCount := func(ctx context.Context) int {
-		keybase, err := Open(WithStorage(storagePath))
+		keybase, err := Open(context.TODO(), WithStorage(storagePath))
 		assert.NoError(t, err)
 		assert.NotNil(t, keybase)
 		defer keybase.Close()
-		count, err := keybase.CountEntries(ctx, true)
+		count, err := keybase.CountEntries(ctx, true, true)
 		assert.NoError(t, err)
 		return count
 	}
 
-	_, err := Open(WithStorage(storageDirectory))
+	_, err := Open(context.TODO(), WithStorage(storageDirectory))
 	assert.Error(t, err)
 
 	initAndStore(context.TODO())
 	count := loadAndCount(context.TODO())
 	assert.Equal(t, 9, count)
-}
-
-// TestQuery covers remaining errors in queryKeys and queryCount helper functions
-func TestQuery(t *testing.T) {
-	db, mock, _ := sqlmock.New()
-	timestamp := time.Now().UnixMilli()
-
-	mock.ExpectQuery(regexp.QuoteMeta(getNamespacesQuery)).WithArgs(timestamp).WillReturnRows(sqlmock.NewRows([]string{"col0", "col1"}).AddRow(1, 1))
-	_, err := queryKeys(context.TODO(), db, getNamespacesQuery, timestamp)
-	assert.Error(t, err)
-
-	mock.ExpectQuery(regexp.QuoteMeta(countNamespacesQuery)).WithArgs(timestamp).WillReturnRows(sqlmock.NewRows([]string{"col0"}).AddRow("string0"))
-	_, err = queryCount(context.TODO(), db, countNamespacesQuery, timestamp)
-	assert.Error(t, err)
 }
