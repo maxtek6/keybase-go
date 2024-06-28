@@ -31,13 +31,9 @@ import (
 )
 
 const (
-	defaultTTL              time.Duration = time.Second * 10
-	defaultStorage          string        = ":memory:"
-	getNamespacesQuery      string        = "SELECT DISTINCT namespace FROM keybase WHERE expiration > (?);"
-	countNamespacesQuery    string        = "SELECT COUNT(DISTINCT namespace) FROM keybase WHERE expiration > (?);"
-	countEntriesQuery       string        = "SELECT COUNT(*) FROM keybase WHERE expiration > (?);"
-	countEntriesUniqueQuery string        = "SELECT COUNT(DISTINCT CONCAT(namespace, key)) FROM keybase WHERE expiration > (?);"
-	pruneEntriesQuery       string        = "DELETE FROM keybase WHERE expiration <= (?);"
+	defaultTTL     time.Duration = time.Second * 10
+	defaultStorage string        = ":memory:"
+	invalidCount   int           = -1
 )
 
 type options struct {
@@ -145,7 +141,7 @@ func (k *Keybase) CountKey(ctx context.Context, namespace, key string, active bo
 	defer k.mu.RUnlock()
 	count, err := newCountKeyQuery(namespace, key, active, timestamp).queryCount(ctx, k.db)
 	if err != nil {
-		return -1, fmt.Errorf("keybase.CountKey: failed to query database: %v", err)
+		return invalidCount, fmt.Errorf("keybase.CountKey: failed to query database: %v", err)
 	}
 	return count, nil
 }
@@ -169,7 +165,7 @@ func (k *Keybase) CountKeys(ctx context.Context, namespace string, active, uniqu
 	defer k.mu.RUnlock()
 	count, err := newCountKeysQuery(namespace, active, unique, timestamp).queryCount(ctx, k.db)
 	if err != nil {
-		return -1, fmt.Errorf("keybase.CountKeys: failed to query database: %v", err)
+		return invalidCount, fmt.Errorf("keybase.CountKeys: failed to query database: %v", err)
 	}
 	return count, nil
 }
@@ -193,7 +189,7 @@ func (k *Keybase) CountNamespaces(ctx context.Context, active bool) (int, error)
 	defer k.mu.RUnlock()
 	count, err := newCountNamespacesQuery(active, timestamp).queryCount(ctx, k.db)
 	if err != nil {
-		return -1, fmt.Errorf("keybase.CountNamespaces: failed to query database: %v", err)
+		return invalidCount, fmt.Errorf("keybase.CountNamespaces: failed to query database: %v", err)
 	}
 	return count, nil
 }
@@ -205,7 +201,7 @@ func (k *Keybase) CountEntries(ctx context.Context, active, unique bool) (int, e
 	defer k.mu.RUnlock()
 	count, err := newCountEntriesQuery(active, unique, timestamp).queryCount(ctx, k.db)
 	if err != nil {
-		return -1, fmt.Errorf("keybase.CountEntries: failed to query database: %v", err)
+		return invalidCount, fmt.Errorf("keybase.CountEntries: failed to query database: %v", err)
 	}
 	return count, nil
 }
