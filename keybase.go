@@ -24,7 +24,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -34,17 +33,6 @@ import (
 const (
 	defaultTTL              time.Duration = time.Second * 10
 	defaultStorage          string        = ":memory:"
-	createTableQuery        string        = "CREATE TABLE IF NOT EXISTS keybase(namespace TEXT, key TEXT, expiration INTEGER);"
-	createNamespaceIndex    string        = "CREATE INDEX IF NOT EXISTS namespace_index ON keybase(namespace);"
-	createKeyIndex          string        = "CREATE INDEX IF NOT EXISTS key_index ON keybase(key);"
-	putQuery                string        = "INSERT INTO keybase VALUES (?, ?, ?);"
-	matchKeyQuery           string        = "SELECT key FROM keybase WHERE namespace = (?) AND key LIKE (?) AND expiration > (?);"
-	matchKeyUniqueQuery     string        = "SELECT DISTINCT key FROM keybase WHERE namespace = (?) AND key LIKE (?) AND expiration > (?);"
-	countKeyQuery           string        = "SELECT COUNT(*) FROM keybase WHERE namespace = (?) AND key = (?) AND expiration > (?);"
-	getKeysQuery            string        = "SELECT key FROM keybase WHERE namespace = (?) AND expiration > (?);"
-	getKeysUniqueQuery      string        = "SELECT DISTINCT key FROM keybase WHERE namespace = (?) AND expiration > (?);"
-	countKeysQuery          string        = "SELECT COUNT(key) FROM keybase WHERE namespace = (?) AND expiration > (?);"
-	countKeysUniqueQuery    string        = "SELECT COUNT(DISTINCT key) FROM keybase WHERE namespace = (?) AND expiration > (?);"
 	getNamespacesQuery      string        = "SELECT DISTINCT namespace FROM keybase WHERE expiration > (?);"
 	countNamespacesQuery    string        = "SELECT COUNT(DISTINCT namespace) FROM keybase WHERE expiration > (?);"
 	countEntriesQuery       string        = "SELECT COUNT(*) FROM keybase WHERE expiration > (?);"
@@ -103,14 +91,16 @@ type Keybase struct {
 }
 
 // Open opens new or existing keybase
-func Open(opts ...Option) (*Keybase, error) {
+func Open(ctx context.Context, opts ...Option) (*Keybase, error) {
 	config := parseOptions(opts...)
 	db, err := sqlOpen("sqlite", config.storage)
 	if err != nil {
 		return nil, fmt.Errorf("keybase.Open: failed to open database: %v", err)
 	}
-	initQuery := createTableQuery + createNamespaceIndex + createKeyIndex
-	_, _ = db.Exec(initQuery)
+	err = newCreateTableQuery().queryExec(ctx, db)
+	if err != nil {
+		return nil, fmt.Errorf("keybase.Open: failed to create table: %v", err)
+	}
 	return &Keybase{
 		mu:  new(sync.RWMutex),
 		db:  db,
@@ -125,10 +115,11 @@ func (k *Keybase) Close() {
 
 // Put inserts new value
 func (k *Keybase) Put(ctx context.Context, namespace, key string) error {
+	expiration := time.Now().Add(k.ttl).UnixMilli()
 	k.mu.Lock()
 	defer k.mu.Unlock()
-	expiration := time.Now().Add(k.ttl).UnixMilli()
-	_, err := k.db.ExecContext(ctx, putQuery, namespace, key, expiration)
+	tx := newPutQuery(namespace, key, expiration)
+	err := tx.queryExec(ctx, k.db)
 	if err != nil {
 		return fmt.Errorf("keybase.Put: failed to insert key: %v", err)
 	}
@@ -136,28 +127,23 @@ func (k *Keybase) Put(ctx context.Context, namespace, key string) error {
 }
 
 // MatchKey collect list of keys from a given namespace that match a specific pattern
-func (k *Keybase) MatchKey(ctx context.Context, namespace, pattern string, unique bool) ([]string, error) {
+func (k *Keybase) MatchKey(ctx context.Context, namespace, pattern string, active, unique bool) ([]string, error) {
 	timestamp := time.Now().UnixMilli()
 	k.mu.RLock()
 	defer k.mu.RUnlock()
-	query := matchKeyQuery
-	if unique {
-		query = matchKeyUniqueQuery
-	}
-	queryPattern := strings.ReplaceAll(pattern, "*", "%")
-	matches, err := queryKeys(ctx, k.db, query, namespace, queryPattern, timestamp)
+	keys, err := newMatchKeyQuery(namespace, pattern, active, unique, timestamp).queryValues(ctx, k.db)
 	if err != nil {
 		return nil, fmt.Errorf("keybase.MatchKey: failed to query database: %v", err)
 	}
-	return matches, nil
+	return keys, nil
 }
 
 // CountKey count active frequency of a specific key from a given namespace
-func (k *Keybase) CountKey(ctx context.Context, namespace, key string) (int, error) {
+func (k *Keybase) CountKey(ctx context.Context, namespace, key string, active bool) (int, error) {
 	timestamp := time.Now().UnixMilli()
 	k.mu.RLock()
 	defer k.mu.RUnlock()
-	count, err := queryCount(ctx, k.db, countKeyQuery, namespace, key, timestamp)
+	count, err := newCountKeyQuery(namespace, key, active, timestamp).queryCount(ctx, k.db)
 	if err != nil {
 		return -1, fmt.Errorf("keybase.CountKey: failed to query database: %v", err)
 	}
@@ -165,15 +151,11 @@ func (k *Keybase) CountKey(ctx context.Context, namespace, key string) (int, err
 }
 
 // GetKeys collects a list of active keys from a given namespace
-func (k *Keybase) GetKeys(ctx context.Context, namespace string, unique bool) ([]string, error) {
+func (k *Keybase) GetKeys(ctx context.Context, namespace string, active, unique bool) ([]string, error) {
 	timestamp := time.Now().UnixMilli()
 	k.mu.RLock()
 	defer k.mu.RUnlock()
-	query := getKeysQuery
-	if unique {
-		query = getKeysUniqueQuery
-	}
-	keys, err := queryKeys(ctx, k.db, query, namespace, timestamp)
+	keys, err := newGetKeysQuery(namespace, active, unique, timestamp).queryValues(ctx, k.db)
 	if err != nil {
 		return nil, fmt.Errorf("keybase.GetKeys: failed to query database: %v", err)
 	}
@@ -181,15 +163,11 @@ func (k *Keybase) GetKeys(ctx context.Context, namespace string, unique bool) ([
 }
 
 // CountKeys counts the active keys from a given namespace
-func (k *Keybase) CountKeys(ctx context.Context, namespace string, unique bool) (int, error) {
+func (k *Keybase) CountKeys(ctx context.Context, namespace string, active, unique bool) (int, error) {
 	timestamp := time.Now().UnixMilli()
-	query := countKeysQuery
-	if unique {
-		query = countKeysUniqueQuery
-	}
 	k.mu.RLock()
 	defer k.mu.RUnlock()
-	count, err := queryCount(ctx, k.db, query, namespace, timestamp)
+	count, err := newCountKeysQuery(namespace, active, unique, timestamp).queryCount(ctx, k.db)
 	if err != nil {
 		return -1, fmt.Errorf("keybase.CountKeys: failed to query database: %v", err)
 	}
@@ -197,11 +175,11 @@ func (k *Keybase) CountKeys(ctx context.Context, namespace string, unique bool) 
 }
 
 // GetNamespace collects a list of active namespaces
-func (k *Keybase) GetNamespaces(ctx context.Context) ([]string, error) {
+func (k *Keybase) GetNamespaces(ctx context.Context, active bool) ([]string, error) {
 	timestamp := time.Now().UnixMilli()
 	k.mu.RLock()
 	defer k.mu.RUnlock()
-	keys, err := queryKeys(ctx, k.db, getNamespacesQuery, timestamp)
+	keys, err := newGetNamespacesQuery(active, timestamp).queryValues(ctx, k.db)
 	if err != nil {
 		return nil, fmt.Errorf("keybase.GetNamespaces: failed to query database: %v", err)
 	}
@@ -209,11 +187,11 @@ func (k *Keybase) GetNamespaces(ctx context.Context) ([]string, error) {
 }
 
 // CountNamespaces counts active namespaces
-func (k *Keybase) CountNamespaces(ctx context.Context) (int, error) {
+func (k *Keybase) CountNamespaces(ctx context.Context, active bool) (int, error) {
 	timestamp := time.Now().UnixMilli()
 	k.mu.RLock()
 	defer k.mu.RUnlock()
-	count, err := queryCount(ctx, k.db, countNamespacesQuery, timestamp)
+	count, err := newCountNamespacesQuery(active, timestamp).queryCount(ctx, k.db)
 	if err != nil {
 		return -1, fmt.Errorf("keybase.CountNamespaces: failed to query database: %v", err)
 	}
@@ -221,15 +199,11 @@ func (k *Keybase) CountNamespaces(ctx context.Context) (int, error) {
 }
 
 // CountEntries counts all keys in all namespaces
-func (k *Keybase) CountEntries(ctx context.Context, unique bool) (int, error) {
+func (k *Keybase) CountEntries(ctx context.Context, active, unique bool) (int, error) {
 	timestamp := time.Now().UnixMilli()
-	query := countEntriesQuery
-	if unique {
-		query = countEntriesUniqueQuery
-	}
 	k.mu.RLock()
 	defer k.mu.RUnlock()
-	count, err := queryCount(ctx, k.db, query, timestamp)
+	count, err := newCountEntriesQuery(active, unique, timestamp).queryCount(ctx, k.db)
 	if err != nil {
 		return -1, fmt.Errorf("keybase.CountEntries: failed to query database: %v", err)
 	}
@@ -238,10 +212,10 @@ func (k *Keybase) CountEntries(ctx context.Context, unique bool) (int, error) {
 
 // PruneEntries removes stale entries.
 func (k *Keybase) PruneEntries(ctx context.Context) error {
+	timestamp := time.Now().UnixMilli()
 	k.mu.Lock()
 	defer k.mu.Unlock()
-	timestamp := time.Now().Add(k.ttl).UnixMilli()
-	_, err := k.db.ExecContext(ctx, pruneEntriesQuery, timestamp)
+	err := newPruneEntriesQuery(timestamp).queryExec(ctx, k.db)
 	if err != nil {
 		return fmt.Errorf("keybase.PruneEntries: failed to insert key: %v", err)
 	}
@@ -255,43 +229,4 @@ func sqlOpen(driverName string, dataSourceName string) (*sql.DB, error) {
 		return nil, err
 	}
 	return db, nil
-}
-
-func queryCount(ctx context.Context, db *sql.DB, query string, args ...any) (int, error) {
-	count := -1
-	row, err := db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return count, err
-	}
-	defer func() {
-		_ = row.Close()
-	}()
-	if row.Next() {
-		err = row.Scan(&count)
-		if err != nil {
-			return count, err
-		}
-	}
-	return count, nil
-}
-
-func queryKeys(ctx context.Context, db *sql.DB, query string, args ...any) ([]string, error) {
-	key := ""
-	keys := []string{}
-	rows, err := db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = rows.Close()
-	}()
-
-	for rows.Next() {
-		err = rows.Scan(&key)
-		if err != nil {
-			return nil, err
-		}
-		keys = append(keys, key)
-	}
-	return keys, nil
 }
