@@ -16,7 +16,7 @@ kb, err := keybase.Open(keybase.WithStorage("/tmp/keybase.db"), keybase.WithTTL(
 ```
 
 This will initialize a database at `/tmp/keybase.db` with a key timeout of one minute. Once
-keybase is open, it is ready to store and maintain keys. Each key is assigned to a nanespace
+keybase is open, it is ready to store and maintain keys. Each key is assigned to a namespace
 and can be inserted using the `Put` function:
 
 ```go

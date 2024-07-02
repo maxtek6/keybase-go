@@ -218,6 +218,17 @@ func (k *Keybase) PruneEntries(ctx context.Context) error {
 	return nil
 }
 
+// ClearEntries removes all entries.
+func (k *Keybase) ClearEntries(ctx context.Context) error {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	err := newClearEntriesQuery().queryExec(ctx, k.db)
+	if err != nil {
+		return fmt.Errorf("keybase.PruneEntries: failed to insert key: %v", err)
+	}
+	return nil
+}
+
 func sqlOpen(driverName string, dataSourceName string) (*sql.DB, error) {
 	db, _ := sql.Open(driverName, dataSourceName)
 	err := db.Ping()
