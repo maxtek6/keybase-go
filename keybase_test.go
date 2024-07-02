@@ -169,7 +169,7 @@ func TestNamespaces(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// TestEntries tests CountEntries and PruneEntries
+// TestEntries tests CountEntries, PruneEntries, and ClearEntries
 func TestEntries(t *testing.T) {
 	keybase, err := Open(context.TODO(), WithTTL(time.Millisecond*50))
 	assert.NoError(t, err)
@@ -206,11 +206,27 @@ func TestEntries(t *testing.T) {
 	assert.Zero(t, count)
 	assert.NoError(t, err)
 
+	err = keybase.Put(context.TODO(), "namespace", "key")
+	assert.NoError(t, err)
+
+	count, err = keybase.CountEntries(context.TODO(), false, false)
+	assert.Equal(t, 1, count)
+	assert.NoError(t, err)
+
+	err = keybase.ClearEntries(context.TODO())
+	assert.NoError(t, err)
+
+	count, err = keybase.CountEntries(context.TODO(), false, false)
+	assert.Zero(t, count)
+	assert.NoError(t, err)
+
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(0))
 	defer cancel()
 	_, err = keybase.CountEntries(ctx, true, true)
 	assert.Error(t, err)
 	err = keybase.PruneEntries(ctx)
+	assert.Error(t, err)
+	err = keybase.ClearEntries(ctx)
 	assert.Error(t, err)
 }
 

@@ -184,6 +184,19 @@ func TestNewPruneEntriesQuery(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestNewClearEntriesQuery(t *testing.T) {
+	db, mock := newMock()
+	tx := newClearEntriesQuery()
+
+	mock.ExpectExec(regexp.QuoteMeta(tx.query)).WillReturnError(errors.New("some error"))
+	err := tx.queryExec(context.TODO(), db)
+	assert.Error(t, err)
+
+	mock.ExpectExec(regexp.QuoteMeta(tx.query)).WillReturnResult(sqlmock.NewResult(1, 1))
+	err = tx.queryExec(context.TODO(), db)
+	assert.NoError(t, err)
+}
+
 func TestQueryCount(t *testing.T) {
 	db, mock := newMock()
 	tx := &dbtx{query: ""}

@@ -155,6 +155,12 @@ func newPruneEntriesQuery(timestamp int64) *dbtx {
 	return tx
 }
 
+func newClearEntriesQuery() *dbtx {
+	return &dbtx{
+		query: "DELETE FROM keybase;",
+	}
+}
+
 func (tx dbtx) queryExec(ctx context.Context, db *sql.DB) error {
 	_, err := db.ExecContext(ctx, tx.query, tx.args...)
 	if err != nil {
