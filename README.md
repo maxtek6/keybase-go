@@ -20,7 +20,7 @@ keybase is open, it is ready to store and maintain keys. Each key is assigned to
 and can be inserted using the `Put` function:
 
 ```go
-_ = kb.Put(context.TODO(), "namespace", "key")
+_ = kb.Put(context.Background(), "namespace", "key")
 ```
 
 Once the key is stored, various functions can be used to query key and namespace information,
@@ -30,7 +30,7 @@ namespace:
 ```go
 active := true
 unique := true
-keys, err := kb.GetKeys(context.TODO(), "namespace", active, unique)
+keys, err := kb.GetKeys(context.Background(), "namespace", active, unique)
 ```
 
 By setting `active` and `unique` to `true`, the slice will include each active key once. Otherwise,
@@ -39,7 +39,7 @@ submitted multiple times and queried within the TTL duration. Over time, as the 
 they can be removed using the `PruneEntries` function:
 
 ```go
-_ = kb.PruneEntries(context.TODO())
+_ = kb.PruneEntries(context.Background())
 ```
 
 This will remove the stale keys and reduce the amount of storage required by memory or 
