@@ -32,26 +32,26 @@ import (
 )
 
 func TestOpenClose(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(0))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(0))
 	defer cancel()
 	keybase, err := Open(ctx)
 	assert.Nil(t, keybase)
 	assert.Error(t, err)
-	keybase, err = Open(context.TODO())
+	keybase, err = Open(context.Background())
 	assert.NotNil(t, keybase)
 	assert.NoError(t, err)
 	defer keybase.Close()
 }
 
 func TestPut(t *testing.T) {
-	keybase, err := Open(context.TODO())
+	keybase, err := Open(context.Background())
 	assert.NoError(t, err)
 	defer keybase.Close()
 
-	err = keybase.Put(context.TODO(), "namespace", "keyvalue")
+	err = keybase.Put(context.Background(), "namespace", "keyvalue")
 	assert.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(0))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(0))
 	defer cancel()
 	err = keybase.Put(ctx, "namespace", "keyvalue")
 	assert.Error(t, err)
@@ -64,31 +64,31 @@ func TestKey(t *testing.T) {
 		"key0", "key0", "key1",
 	}
 	pattern := "key*"
-	keybase, err := Open(context.TODO())
+	keybase, err := Open(context.Background())
 	assert.NoError(t, err)
 	defer keybase.Close()
 
 	for _, key := range keys {
-		err = keybase.Put(context.TODO(), namespace, key)
+		err = keybase.Put(context.Background(), namespace, key)
 		assert.NoError(t, err)
 	}
 
-	err = keybase.Put(context.TODO(), "othernamespace", "key0")
+	err = keybase.Put(context.Background(), "othernamespace", "key0")
 	assert.NoError(t, err)
 
-	matchedKeys, err := keybase.MatchKey(context.TODO(), namespace, pattern, true, false)
+	matchedKeys, err := keybase.MatchKey(context.Background(), namespace, pattern, true, false)
 	assert.Len(t, matchedKeys, 3)
 	assert.NoError(t, err)
 
-	matchedKeys, err = keybase.MatchKey(context.TODO(), namespace, pattern, true, true)
+	matchedKeys, err = keybase.MatchKey(context.Background(), namespace, pattern, true, true)
 	assert.Len(t, matchedKeys, 2)
 	assert.NoError(t, err)
 
-	count, err := keybase.CountKey(context.TODO(), namespace, keys[0], true)
+	count, err := keybase.CountKey(context.Background(), namespace, keys[0], true)
 	assert.Equal(t, 2, count)
 	assert.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(0))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(0))
 	defer cancel()
 	_, err = keybase.MatchKey(ctx, namespace, pattern, true, false)
 	assert.Error(t, err)
@@ -102,35 +102,35 @@ func TestKeys(t *testing.T) {
 	keys := []string{
 		"key0", "key0", "key1",
 	}
-	keybase, err := Open(context.TODO())
+	keybase, err := Open(context.Background())
 	assert.NoError(t, err)
 	defer keybase.Close()
 
 	for _, key := range keys {
-		err = keybase.Put(context.TODO(), namespace, key)
+		err = keybase.Put(context.Background(), namespace, key)
 		assert.NoError(t, err)
 	}
 
-	err = keybase.Put(context.TODO(), "othernamespace", "key0")
+	err = keybase.Put(context.Background(), "othernamespace", "key0")
 	assert.NoError(t, err)
 
-	namespaceKeys, err := keybase.GetKeys(context.TODO(), namespace, true, false)
+	namespaceKeys, err := keybase.GetKeys(context.Background(), namespace, true, false)
 	assert.Len(t, namespaceKeys, 3)
 	assert.NoError(t, err)
 
-	namespaceKeys, err = keybase.GetKeys(context.TODO(), namespace, true, true)
+	namespaceKeys, err = keybase.GetKeys(context.Background(), namespace, true, true)
 	assert.Len(t, namespaceKeys, 2)
 	assert.NoError(t, err)
 
-	count, err := keybase.CountKeys(context.TODO(), namespace, true, false)
+	count, err := keybase.CountKeys(context.Background(), namespace, true, false)
 	assert.Equal(t, 3, count)
 	assert.NoError(t, err)
 
-	count, err = keybase.CountKeys(context.TODO(), namespace, true, true)
+	count, err = keybase.CountKeys(context.Background(), namespace, true, true)
 	assert.Equal(t, 2, count)
 	assert.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(0))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(0))
 	defer cancel()
 	_, err = keybase.GetKeys(ctx, namespace, true, false)
 	assert.Error(t, err)
@@ -139,29 +139,29 @@ func TestKeys(t *testing.T) {
 }
 
 func TestNamespaces(t *testing.T) {
-	keybase, err := Open(context.TODO())
+	keybase, err := Open(context.Background())
 	assert.NoError(t, err)
 	defer keybase.Close()
 
 	for namespaceIndex := 0; namespaceIndex < 3; namespaceIndex++ {
 		namespace := fmt.Sprintf("namespace%d", namespaceIndex)
-		err = keybase.Put(context.TODO(), namespace, "key0")
+		err = keybase.Put(context.Background(), namespace, "key0")
 		assert.NoError(t, err)
-		err = keybase.Put(context.TODO(), namespace, "key0")
+		err = keybase.Put(context.Background(), namespace, "key0")
 		assert.NoError(t, err)
-		err = keybase.Put(context.TODO(), namespace, "key1")
+		err = keybase.Put(context.Background(), namespace, "key1")
 		assert.NoError(t, err)
 	}
 
-	namespaces, err := keybase.GetNamespaces(context.TODO(), true)
+	namespaces, err := keybase.GetNamespaces(context.Background(), true)
 	assert.Len(t, namespaces, 3)
 	assert.NoError(t, err)
 
-	count, err := keybase.CountNamespaces(context.TODO(), true)
+	count, err := keybase.CountNamespaces(context.Background(), true)
 	assert.Equal(t, 3, count)
 	assert.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(0))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(0))
 	defer cancel()
 	_, err = keybase.GetNamespaces(ctx, true)
 	assert.Error(t, err)
@@ -171,56 +171,56 @@ func TestNamespaces(t *testing.T) {
 
 // TestEntries tests CountEntries, PruneEntries, and ClearEntries
 func TestEntries(t *testing.T) {
-	keybase, err := Open(context.TODO(), WithTTL(time.Millisecond*50))
+	keybase, err := Open(context.Background(), WithTTL(time.Millisecond*50))
 	assert.NoError(t, err)
 	defer keybase.Close()
 
 	for namespaceIndex := 0; namespaceIndex < 3; namespaceIndex++ {
 		namespace := fmt.Sprintf("namespace%d", namespaceIndex)
-		err = keybase.Put(context.TODO(), namespace, "key0")
+		err = keybase.Put(context.Background(), namespace, "key0")
 		assert.NoError(t, err)
-		err = keybase.Put(context.TODO(), namespace, "key0")
+		err = keybase.Put(context.Background(), namespace, "key0")
 		assert.NoError(t, err)
-		err = keybase.Put(context.TODO(), namespace, "key1")
+		err = keybase.Put(context.Background(), namespace, "key1")
 		assert.NoError(t, err)
 	}
 
-	count, err := keybase.CountEntries(context.TODO(), true, false)
+	count, err := keybase.CountEntries(context.Background(), true, false)
 	assert.Equal(t, 9, count)
 	assert.NoError(t, err)
 
-	count, err = keybase.CountEntries(context.TODO(), true, true)
+	count, err = keybase.CountEntries(context.Background(), true, true)
 	assert.Equal(t, 6, count)
 	assert.NoError(t, err)
 
 	time.Sleep(time.Millisecond * 50)
 
-	count, err = keybase.CountEntries(context.TODO(), false, false)
+	count, err = keybase.CountEntries(context.Background(), false, false)
 	assert.Equal(t, 9, count)
 	assert.NoError(t, err)
 
-	err = keybase.PruneEntries(context.TODO())
+	err = keybase.PruneEntries(context.Background())
 	assert.NoError(t, err)
 
-	count, err = keybase.CountEntries(context.TODO(), false, false)
+	count, err = keybase.CountEntries(context.Background(), false, false)
 	assert.Zero(t, count)
 	assert.NoError(t, err)
 
-	err = keybase.Put(context.TODO(), "namespace", "key")
+	err = keybase.Put(context.Background(), "namespace", "key")
 	assert.NoError(t, err)
 
-	count, err = keybase.CountEntries(context.TODO(), false, false)
+	count, err = keybase.CountEntries(context.Background(), false, false)
 	assert.Equal(t, 1, count)
 	assert.NoError(t, err)
 
-	err = keybase.ClearEntries(context.TODO())
+	err = keybase.ClearEntries(context.Background())
 	assert.NoError(t, err)
 
-	count, err = keybase.CountEntries(context.TODO(), false, false)
+	count, err = keybase.CountEntries(context.Background(), false, false)
 	assert.Zero(t, count)
 	assert.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(0))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(0))
 	defer cancel()
 	_, err = keybase.CountEntries(ctx, true, true)
 	assert.Error(t, err)
@@ -235,7 +235,7 @@ func TestStorage(t *testing.T) {
 	storageDirectory, _ := os.MkdirTemp(os.TempDir(), "keybase-*")
 	storagePath := path.Join(storageDirectory, "keybase.db")
 	initAndStore := func(ctx context.Context) {
-		keybase, err := Open(context.TODO(), WithStorage(storagePath))
+		keybase, err := Open(context.Background(), WithStorage(storagePath))
 		assert.NoError(t, err)
 		assert.NotNil(t, keybase)
 		defer keybase.Close()
@@ -247,7 +247,7 @@ func TestStorage(t *testing.T) {
 		}
 	}
 	loadAndCount := func(ctx context.Context) int {
-		keybase, err := Open(context.TODO(), WithStorage(storagePath))
+		keybase, err := Open(context.Background(), WithStorage(storagePath))
 		assert.NoError(t, err)
 		assert.NotNil(t, keybase)
 		defer keybase.Close()
@@ -256,10 +256,10 @@ func TestStorage(t *testing.T) {
 		return count
 	}
 
-	_, err := Open(context.TODO(), WithStorage(storageDirectory))
+	_, err := Open(context.Background(), WithStorage(storageDirectory))
 	assert.Error(t, err)
 
-	initAndStore(context.TODO())
-	count := loadAndCount(context.TODO())
+	initAndStore(context.Background())
+	count := loadAndCount(context.Background())
 	assert.Equal(t, 9, count)
 }

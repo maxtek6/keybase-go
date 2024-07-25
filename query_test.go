@@ -54,11 +54,11 @@ func TestNewTableQuery(t *testing.T) {
 	tx := newCreateTableQuery()
 
 	mock.ExpectExec(regexp.QuoteMeta(tx.query)).WillReturnError(errors.New("some error"))
-	err := tx.queryExec(context.TODO(), db)
+	err := tx.queryExec(context.Background(), db)
 	assert.Error(t, err)
 
 	mock.ExpectExec(regexp.QuoteMeta(tx.query)).WillReturnResult(sqlmock.NewResult(1, 1))
-	err = tx.queryExec(context.TODO(), db)
+	err = tx.queryExec(context.Background(), db)
 	assert.NoError(t, err)
 }
 
@@ -67,11 +67,11 @@ func TestNewPutQuery(t *testing.T) {
 	tx := newPutQuery(namespace, key, timestamp)
 
 	mock.ExpectExec(regexp.QuoteMeta(tx.query)).WillReturnError(errors.New("some error"))
-	err := tx.queryExec(context.TODO(), db)
+	err := tx.queryExec(context.Background(), db)
 	assert.Error(t, err)
 
 	mock.ExpectExec(regexp.QuoteMeta(tx.query)).WillReturnResult(sqlmock.NewResult(1, 1))
-	err = tx.queryExec(context.TODO(), db)
+	err = tx.queryExec(context.Background(), db)
 	assert.NoError(t, err)
 }
 
@@ -176,11 +176,11 @@ func TestNewPruneEntriesQuery(t *testing.T) {
 	tx := newPruneEntriesQuery(timestamp)
 
 	mock.ExpectExec(regexp.QuoteMeta(tx.query)).WillReturnError(errors.New("some error"))
-	err := tx.queryExec(context.TODO(), db)
+	err := tx.queryExec(context.Background(), db)
 	assert.Error(t, err)
 
 	mock.ExpectExec(regexp.QuoteMeta(tx.query)).WillReturnResult(sqlmock.NewResult(1, 1))
-	err = tx.queryExec(context.TODO(), db)
+	err = tx.queryExec(context.Background(), db)
 	assert.NoError(t, err)
 }
 
@@ -189,11 +189,11 @@ func TestNewClearEntriesQuery(t *testing.T) {
 	tx := newClearEntriesQuery()
 
 	mock.ExpectExec(regexp.QuoteMeta(tx.query)).WillReturnError(errors.New("some error"))
-	err := tx.queryExec(context.TODO(), db)
+	err := tx.queryExec(context.Background(), db)
 	assert.Error(t, err)
 
 	mock.ExpectExec(regexp.QuoteMeta(tx.query)).WillReturnResult(sqlmock.NewResult(1, 1))
-	err = tx.queryExec(context.TODO(), db)
+	err = tx.queryExec(context.Background(), db)
 	assert.NoError(t, err)
 }
 
@@ -202,15 +202,15 @@ func TestQueryCount(t *testing.T) {
 	tx := &dbtx{query: ""}
 
 	mock.ExpectQuery(tx.query).WillReturnError(errors.New("some error"))
-	_, err := tx.queryCount(context.TODO(), db)
+	_, err := tx.queryCount(context.Background(), db)
 	assert.Error(t, err)
 
 	mock.ExpectQuery(tx.query).WillReturnRows(sqlmock.NewRows([]string{"col0"}).AddRow("col"))
-	_, err = tx.queryCount(context.TODO(), db)
+	_, err = tx.queryCount(context.Background(), db)
 	assert.Error(t, err)
 
 	mock.ExpectQuery(tx.query).WillReturnRows(sqlmock.NewRows([]string{"col0"}).AddRow(1))
-	_, err = tx.queryCount(context.TODO(), db)
+	_, err = tx.queryCount(context.Background(), db)
 	assert.NoError(t, err)
 }
 
@@ -219,14 +219,14 @@ func TestQueryValues(t *testing.T) {
 	tx := &dbtx{query: ""}
 
 	mock.ExpectQuery(tx.query).WillReturnError(errors.New("some error"))
-	_, err := tx.queryValues(context.TODO(), db)
+	_, err := tx.queryValues(context.Background(), db)
 	assert.Error(t, err)
 
 	mock.ExpectQuery(tx.query).WillReturnRows(sqlmock.NewRows([]string{"col0", "col1"}).AddRow("col0", "col1"))
-	_, err = tx.queryValues(context.TODO(), db)
+	_, err = tx.queryValues(context.Background(), db)
 	assert.Error(t, err)
 
 	mock.ExpectQuery(tx.query).WillReturnRows(sqlmock.NewRows([]string{"col0"}).AddRow("value"))
-	_, err = tx.queryValues(context.TODO(), db)
+	_, err = tx.queryValues(context.Background(), db)
 	assert.NoError(t, err)
 }
