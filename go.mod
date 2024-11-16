@@ -4,7 +4,7 @@ go 1.22.4
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
-	github.com/huandu/go-sqlbuilder v1.30.1
+	github.com/huandu/go-sqlbuilder v1.32.0
 	github.com/stretchr/testify v1.9.0
 	modernc.org/sqlite v1.33.1
 )
