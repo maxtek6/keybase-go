@@ -49,7 +49,7 @@ jobs:
       run: make cover
     
     - name: Upload Coverage Report
-      uses: codecov/codecov-action@v5.0.0
+      uses: codecov/codecov-action@v5.0.2
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         slug: maxtek6/keybase-go
